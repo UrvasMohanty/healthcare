@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Disease Prediction (Tabular + Skin)</title>
+<style>
+  /* ========= THEME ========= */
+  :root {
+    --bg: #0b1320;
+    --bg-alt: #0f1a31;
+    --card: #121a2a;
+    --muted: #8aa1c1;
+    --text: #e9eef7;
+    --brand: #4ea6ff;
+    --accent: #8bffb8;
+    --danger: #ff6b6b;
+    --ok: #37d67a;
+    --border: rgba(255,255,255,.08);
+    --radius: 16px;
+    --shadow: 0 4px 12px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    font-size: 15px;
+    line-height: 1.5;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 70%, var(--bg) 100%);
+    color: var(--text);
+  }
+
+  /* ========= LAYOUT ========= */
+  header {
+    padding: 20px 16px;
+    text-align: center;
+    background: rgba(0,0,0,.25);
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  h1 { font-weight: 800; font-size: 1.8rem; }
+  .sub { color: var(--muted); margin-top: 6px; font-size: .95rem; }
+
+  .container { max-width: 1100px; margin: 20px auto; padding: 16px; }
+  .grid { display: grid; gap: 20px; }
+  @media (min-width: 920px) { .grid { grid-template-columns: 360px 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ========= FORMS ========= */
+  label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  input[type="number"], input[type="text"], select {
+    width: 100%;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: #0c1426;
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus { border-color: var(--brand); }
+  input[type="file"] { color: var(--muted); }
+
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* ========= BUTTONS ========= */
+  .btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: #0f1e3a;
+    color: var(--text);
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 700;
+    transition: background .2s, transform .1s;
+  }
+  .btn:hover:not(:disabled) { background: #15294f; transform: translateY(-1px); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn.brand { background: var(--brand); border-color: transparent; color: #051423; }
+  .btn.brand:hover { background: #72baff; }
+
+  .btn.ghost { background: transparent; }
+
+  /* ========= COMPONENTS ========= */
+  .section-title { font-weight: 800; margin: 12px 0 10px; font-size: 1.05rem; }
+  .badge { font-size: 12px; padding: 6px 10px; border-radius: 999px; background: #0e1a2f; border: 1px solid var(--border); color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 10px 12px; border: 1px solid var(--border); background: #0e1a2f; color: var(--muted); font-size: .9rem; }
+  .hr { height: 1px; background: var(--border); margin: 16px 0; }
+
+  .result {
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 14px;
+    background: #0c1529;
+    font-weight: 600;
+  }
+  .result.ok { border-color: var(--ok); color: var(--ok); }
+  .result.warn { border-color: var(--danger); color: var(--danger); }
+
+  .table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+  .table th, .table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; }
+  .table th { color: var(--muted); font-weight: 700; }
+
+  .foot { text-align: center; margin: 20px 0; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI Disease Prediction</h1>
+  <div class="sub">Predict diseases from tabular inputs or skin images. Built on your Python logic.</div>
+</header>
+
+<div class="container grid">
+  <!-- LEFT -->
+  <section class="card">
+    <div class="section-title">Patient</div>
+    <div class="row">
+      <div style="flex:1 1 180px">
+        <label>Full name</label>
+        <input id="patientName" type="text" placeholder="Your name" />
+      </div>
+      <div style="flex:1 1 120px">
+        <label>Age</label>
+        <input id="patientAge" type="number" min="0" placeholder="e.g., 32" />
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="section-title">Prediction type</div>
+    <div class="row">
+      <div style="flex:1 1 220px">
+        <label>Choose disease</label>
+        <select id="diseaseSelect"></select>
+      </div>
+      <span class="pill"><input id="useDemo" type="checkbox" checked /> Demo mode</span>
+    </div>
+
+    <div id="featureForm" class="hidden"></div>
+
+    <!-- Skin Upload -->
+    <div id="skinBlock" class="hidden">
+      <div class="section-title">Skin image</div>
+      <input id="skinFile" type="file" accept="image/*" />
+      <div id="skinPreview" class="row" style="margin-top:10px"></div>
+    </div>
+
+    <div class="hr"></div>
+    <div class="row">
+      <button id="predictBtn" class="btn brand">Predict</button>
+      <button id="resetBtn" class="btn ghost">Reset</button>
+      <span class="badge right">History saved locally</span>
+    </div>
+  </section>
+
+  <!-- RIGHT -->
+  <section class="card">
+    <div class="section-title">Output</div>
+    <div id="resultBox" class="result hidden"></div>
+
+    <div id="topPreds" class="hidden">
+      <div class="section-title">Top predictions</div>
+      <table class="table">
+        <thead><tr><th>Label</th><th>Probability</th></tr></thead>
+        <tbody id="predRows"></tbody>
+      </table>
+    </div>
+
+    <div id="recos" class="hidden" style="margin-top:16px">
+      <div class="section-title">Recommendations</div>
+      <button id="showRecos" class="btn">Show doctors & hospitals</button>
+      <div id="recoLists" class="hidden"></div>
+    </div>
+
+    <div class="hr"></div>
+    <div>
+      <div class="section-title">Prediction history</div>
+      <div class="row" style="justify-content: flex-end; gap:10px; margin-bottom:8px;">
+        <button id="exportCsv" class="btn">Download CSV</button>
+        <button id="clearHistory" class="btn ghost">Clear</button>
+      </div>
+      <table class="table" id="histTable">
+        <thead>
+          <tr><th>Timestamp</th><th>Name</th><th>Age</th><th>Disease</th><th>Result</th><th>Confidence</th></tr>
+        </thead>
+        <tbody id="histBody"><tr><td colspan="6" class="muted">No history yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<p class="foot">⚡ Works fully offline in demo mode. Replace JS demo with your Python API for real ML predictions.</p>
+
+<script>
+/** ===== App Config (mirrors Python loaders/flows) ===== **/
+
+// Disease -> display name + feature names taken from your Python file
+const DISEASES = {
+  cancer:     { name: "Cancer",            features: null /* not collecting full set in UI */ },
+  heart:      { name: "Heart Disease",     features: ["age","cp","trestbps","chol","thalach"] },
+  diabetes:   { name: "Diabetes",          features: ["Age","Insulin","Glucose","BloodPressure","DiabetesPedigreeFunction","BMI"] },
+  kidney:     { name: "Kidney Disease",    features: ["age","bp","bgr","su","al"] },
+  liver:      { name: "Liver Disease",     features: ["Age","Total_Bilirubin","Direct_Bilirubin","Alamine_Aminotransferase","Alkaline_Phosphotase"] },
+  parkinson:  { name: "Parkinson's Disease",features:["MDVP:Fo(Hz)","MDVP:Jitter(%)","MDVP:Shimmer","NHR"] },
+  cold:       { name: "Common Cold",       features: ["sore_throat","runny_nose","sneezing","cough"] },
+  fever:      { name: "Fever",             features: ["temperature","chills","sweating","body_ache"] },
+  flu:        { name: "Flu",               features: ["fever","chills","fatigue","cough"] },
+  malaria:    { name: "Malaria",           features: ["fever","headache","sweating","nausea"] },
+  skin:       { name: "Skin Disease (image)", features: [] } // handled separately
+};
+
+// Odisha recommendations (mirrors your Python dicts)
+const TOP_DOCTORS = {
+  cancer: [
+    ["Dr. Manoj Kumar Sahu","Oncologist","AIIMS Bhubaneswar","0674-2476789"],
+    ["Dr. Smita Nayak","Oncologist","KIMS Hospital","0674-7105555"],
+    ["Dr. Subrat Mohanty","Oncologist","SUM Hospital","0674-2300200"],
+    ["Dr. Satyajit Mohanty","Oncologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. Ramesh Chandra Sahu","Oncologist","SCB Medical College","0671-2414300"],
+  ],
+  heart: [
+    ["Dr. Anupam Jena","Cardiologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. Abhijit Sahoo","Cardiologist","KIMS","0674-7105555"],
+    ["Dr. Santosh Satpathy","Cardiologist","SUM Ultimate Medicare","1800-120-0000"],
+    ["Dr. Ranjan Panda","Cardiologist","AIIMS Bhubaneswar","0674-2476789"],
+    ["Dr. Ashok Kumar Das","Cardiologist","Care Hospitals","0674-6699999"],
+  ],
+  diabetes: [
+    ["Dr. Ranjita Mohanty","Endocrinologist","KIMS","0674-7105555"],
+    ["Dr. Shakti R. Satpathy","Diabetologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. Rajeev Nayak","Endocrinologist","AIIMS","0674-2476789"],
+    ["Dr. Sudhanshu Sekhar","Diabetologist","SUM Hospital","0674-2300200"],
+    ["Dr. Swagatika Samal","Endocrinologist","SCB Medical College","0671-2414300"],
+  ],
+  kidney: [
+    ["Dr. Satya Ranjan Sahu","Nephrologist","SUM Hospital","0674-2300200"],
+    ["Dr. Lalatendu Das","Nephrologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. Amrit Kumar","Nephrologist","AIIMS Bhubaneswar","0674-2476789"],
+    ["Dr. Shantanu Panda","Nephrologist","KIMS","0674-7105555"],
+    ["Dr. Prabhat Ranjan","Nephrologist","SCB Medical College","0671-2414300"],
+  ],
+  liver: [
+    ["Dr. Debasis Panigrahi","Gastroenterologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. C. Mishra","Hepatologist","KIMS","0674-7105555"],
+    ["Dr. Ritesh Mohapatra","Liver Specialist","SUM Hospital","0674-2300200"],
+    ["Dr. Ananya Mohanty","Gastroenterologist","AIIMS","0674-2476789"],
+    ["Dr. Sanjay Tripathy","Hepatologist","SCB Medical","0671-2414300"],
+  ],
+  parkinson: [
+    ["Dr. Debasis Panda","Neurologist","SCB Medical College","0671-2414300"],
+    ["Dr. Ajay Behera","Neurologist","AIIMS Bhubaneswar","0674-2476789"],
+    ["Dr. S.K. Mishra","Neurologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. A. Tripathy","Neurologist","KIMS","0674-7105555"],
+    ["Dr. Sweta Nayak","Neurologist","SUM Hospital","0674-2300200"],
+  ],
+  cold: [
+    ["Dr. Jayanti Panda","General Physician","Apollo Hospitals","0674-6661010"],
+    ["Dr. Sandeep Pattnaik","ENT Specialist","KIMS","0674-7105555"],
+    ["Dr. Priya Das","General Physician","AIIMS","0674-2476789"],
+    ["Dr. Soumya Pradhan","ENT Specialist","SUM Hospital","0674-2300200"],
+    ["Dr. Bijay Nayak","General Physician","SCB Medical College","0671-2414300"],
+  ],
+  fever: [
+    ["Dr. Amit Raj","General Physician","Apollo Hospitals","0674-6661010"],
+    ["Dr. Rakesh Tripathy","General Physician","KIMS","0674-7105555"],
+    ["Dr. Ipsita Behera","Infectious Disease","AIIMS","0674-2476789"],
+    ["Dr. Sarita Nayak","General Physician","SCB","0671-2414300"],
+    ["Dr. Tapas Sahu","General Physician","SUM Hospital","0674-2300200"],
+  ],
+  flu: [
+    ["Dr. Pritam Sahu","General Physician","Apollo Hospitals","0674-6661010"],
+    ["Dr. Rina Nayak","Infectious Disease","AIIMS","0674-2476789"],
+    ["Dr. Niraj Tripathy","General Physician","KIMS","0674-7105555"],
+    ["Dr. Arpita Behera","General Physician","SCB","0671-2414300"],
+    ["Dr. Jyoti Patra","General Physician","SUM Hospital","0674-2300200"],
+  ],
+  malaria: [
+    ["Dr. P.K. Mohapatra","Infectious Disease","SCB Medical College","0671-2414300"],
+    ["Dr. Chittaranjan Nayak","General Physician","AIIMS Bhubaneswar","0674-2476789"],
+    ["Dr. Meena Sahu","General Physician","Apollo Hospitals","0674-6661010"],
+    ["Dr. Gitanjali Das","Infectious Disease","SUM Hospital","0674-2300200"],
+    ["Dr. Saurav Jena","General Physician","KIMS","0674-7105555"],
+  ],
+  skin: [
+    ["Dr. Bibhuti B. Mohanty","Dermatologist","Dermacare Skin & Hair Clinic","93371 43446"],
+    ["Dr. Pradeep Kumar Sahoo","Dermatologist & Cosmetologist","Sparsh Hospital","94371 06412"],
+    ["Dr. Debasish Rath","Dermatologist","Apollo Hospitals","0674-6661010"],
+    ["Dr. Smita Mohanty","Skin Specialist","Hi-Tech Medical College & Hospital","98610 98050"],
+    ["Dr. Satyajit Sahu","Dermatologist & Trichologist","SUM Ultimate Medicare","1800 120 8989"],
+  ]
+};
+
+const TOP_HOSPITALS = {
+  cancer: [
+    ["AIIMS Bhubaneswar","0674-2476789"],["KIMS Hospital","0674-7105555"],["SUM Hospital","0674-2300200"],
+    ["Apollo Hospitals","0674-6661010"],["Acharya Harihar Regional Cancer Centre, Cuttack","+91-671-2414985"],
+  ],
+  heart: [
+    ["Apollo Hospitals","0674-6661010"],["KIMS","0674-7105555"],["SUM Ultimate Medicare","1800-120-0000"],
+    ["AIIMS Bhubaneswar","0674-2476789"],["Care Hospitals","0674-6699999"],
+  ],
+  diabetes: [
+    ["KIMS","0674-7105555"],["Hi-Tech Medical College","0674-2370591"],["AIIMS Bhubaneswar","0674-2476789"],
+    ["SUM Hospital","0674-2300200"],["SCB Medical College","0671-2414300"],
+  ],
+  kidney: [
+    ["SUM Hospital","0674-2300200"],["Apollo Hospitals","0674-6661010"],["AIIMS Bhubaneswar","0674-2476789"],
+    ["KIMS","0674-7105555"],["SCB Medical College","0671-2414300"],
+  ],
+  liver: [
+    ["Apollo Hospitals","0674-6661010"],["KIMS","0674-7105555"],["SUM Hospital","0674-2300200"],
+    ["AIIMS Bhubaneswar","0674-2476789"],["SCB Medical","0671-2414300"],
+  ],
+  parkinson: [
+    ["SCB Medical College","0671-2414300"],["AIIMS Bhubaneswar","0674-2476789"],["Apollo Hospitals","0674-6661010"],
+    ["KIMS","0674-7105555"],["SUM Hospital","0674-2300200"],
+  ],
+  cold: [
+    ["Apollo Hospitals","0674-6661010"],["KIMS","0674-7105555"],["AIIMS Bhubaneswar","0674-2476789"],
+    ["SUM Hospital","0674-2300200"],["SCB Medical College","0671-2414300"],
+  ],
+  fever: [
+    ["Apollo Hospitals","0674-6661010"],["KIMS","0674-7105555"],["AIIMS Bhubaneswar","0674-2476789"],
+    ["SCB Medical College","0671-2414300"],["SUM Hospital","0674-2300200"],
+  ],
+  flu: [
+    ["Apollo Hospitals","0674-6661010"],["Capital Hospital, Bhubaneswar","+91-674-2391983"],["KIMS","0674-7105555"],
+    ["SCB Medical College","0671-2414300"],["SUM Hospital","0674-2300200"],
+  ],
+  malaria: [
+    ["SCB Medical College","0671-2414300"],["AIIMS Bhubaneswar","0674-2476789"],["Apollo Hospitals","0674-6661010"],
+    ["SUM Hospital","0674-2300200"],["KIMS","0674-7105555"],
+  ],
+  skin: [
+    ["Sparsh Hospital & Critical Care","+91 94371 06412"],["Care Hospitals","+91 99371 19821"],
+    ["Apollo Hospitals","0674-6661010"],["SUM Hospital","0674-2300200"],["KIMS","+91 674 230 4400"],
+  ]
+};
+
+// History CSV header mirrors Python
+const CSV_HEADER = ["Timestamp","Patient Name","Age","Disease","Result","Confidence/Accuracy"];
+
+// Toggle this to false if you connect to a backend
+let USE_DEMO = true;
+
+/** ===== DOM ===== **/
+const el = (id)=>document.getElementById(id);
+const diseaseSelect = el("diseaseSelect");
+const featureForm   = el("featureForm");
+const skinBlock     = el("skinBlock");
+const skinFile      = el("skinFile");
+const skinPreview   = el("skinPreview");
+const useDemoChk    = el("useDemo");
+const resultBox     = el("resultBox");
+const topPreds      = el("topPreds");
+const predRows      = el("predRows");
+const recosWrap     = el("recos");
+const recoLists     = el("recoLists");
+const showRecosBtn  = el("showRecos");
+const histBody      = el("histBody");
+
+/** ===== Init disease dropdown ===== **/
+(function init(){
+  Object.entries(DISEASES).forEach(([key,val])=>{
+    const opt = document.createElement("option");
+    opt.value = key; opt.textContent = `${val.name} (${key})`;
+    diseaseSelect.appendChild(opt);
+  });
+  diseaseSelect.value = "heart"; // sensible default
+  renderFeatureInputs();
+  renderHistory();
+})();
+
+/** ===== UI rendering ===== **/
+function renderFeatureInputs(){
+  const key = diseaseSelect.value;
+  const meta = DISEASES[key];
+  skinBlock.classList.toggle("hidden", key!=="skin");
+
+  // feature section visibility
+  if(key==="skin" || !meta.features || meta.features.length===0){
+    featureForm.classList.add("hidden");
+    featureForm.innerHTML = "";
+    return;
+  }
+  featureForm.classList.remove("hidden");
+  const rows = meta.features.map(f=>{
+    const safe = f.replaceAll(/[^a-z0-9:_()-]/gi,"_");
+    return `
+      <div class="row" style="margin:10px 0 0">
+        <div style="flex:1 1 220px">
+          <label>${f}</label>
+          <input type="number" step="any" id="feat_${safe}" placeholder="Enter ${f}">
+        </div>
+      </div>`;
+  }).join("");
+  featureForm.innerHTML = `<div class="section-title">Features</div>${rows}`;
+}
+
+/** ===== Skin preview ===== **/
+skinFile.addEventListener("change", ()=>{
+  skinPreview.innerHTML = "";
+  const file = skinFile.files?.[0];
+  if(!file) return;
+  const img = document.createElement("img");
+  img.style.maxWidth = "220px"; img.style.borderRadius="12px"; img.style.border="1px solid var(--border)";
+  img.alt = "Preview"; img.src = URL.createObjectURL(file);
+  skinPreview.appendChild(img);
+});
+
+/** ===== Demo heuristics (client-side only) =====
+  NOTE: This is *not* the ML model. It simply produces a consistent,
+  readable risk and optional top-k for the UI demo. Replace with API calls.
+**/
+function demoTabularRisk(key, values){
+  // Normalize numbers to [0,1] roughly by feature order, then average.
+  const nums = Object.values(values).map(v=>isFinite(v)?Number(v):0);
+  if(nums.length===0) return {pred:0, conf:0.50};
+  const mean = nums.reduce((a,b)=>a+b,0)/nums.length;
+  const std  = Math.sqrt(nums.reduce((a,b)=>a+(b-mean)**2,0)/nums.length)||1;
+  const score = Math.max(0, Math.min(1, (mean/(std+1e-6)) / 10 + 0.5)); // tame
+  const conf  = 0.55 + (Math.abs(score-0.5))*0.9; // 55–100%
+  const pred  = score>0.55 ? 1 : 0; // 0 fit, 1 diseased
+  return {pred, conf: Number(conf.toFixed(2))};
+}
+
+function demoSkinTopK(){
+  const classes = ["eczema","psoriasis","acne","healthy"];
+  // deterministic-ish by time
+  const seed = (Date.now() % 997) / 997;
+  const pick = (arr)=>arr[Math.floor(seed*arr.length)];
+  const top = [
+    pick(classes),
+    pick(classes.slice().reverse()),
+    pick(classes.slice(1)),
+  ];
+  // ensure unique-ish and "healthy" possible
+  const probs = [0.62,0.23,0.15].map((p,i)=>Math.max(0.05,p - (i*0.02)));
+  return top.map((label,i)=>({label, prob:probs[i]}));
+}
+
+/** ===== History (localStorage) ===== **/
+const HIST_KEY = "pred_history_v1";
+function loadHistory(){
+  try{ return JSON.parse(localStorage.getItem(HIST_KEY)||"[]"); }catch{ return []; }
+}
+function saveHistory(rows){
+  localStorage.setItem(HIST_KEY, JSON.stringify(rows));
+}
+function addHistoryRow(row){
+  const rows = loadHistory(); rows.unshift(row); saveHistory(rows); renderHistory();
+}
+function renderHistory(){
+  const rows = loadHistory();
+  if(rows.length===0){ histBody.innerHTML = `<tr><td colspan="6" class="muted">No history yet.</td></tr>`; return; }
+  histBody.innerHTML = rows.map(r=>`<tr>
+    <td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td>
+  </tr>`).join("");
+}
+function downloadCsv(){
+  const rows = loadHistory();
+  const csv = [CSV_HEADER, ...rows].map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "prediction_history.csv"; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** ===== Wire events ===== **/
+useDemoChk.addEventListener("change", e=>{
+  USE_DEMO = !!useDemoChk.checked;
+});
+
+diseaseSelect.addEventListener("change", renderFeatureInputs);
+
+el("resetBtn").addEventListener("click", ()=>{
+  el("patientName").value="";
+  el("patientAge").value="";
+  skinFile.value="";
+  skinPreview.innerHTML="";
+  resultBox.classList.add("hidden");
+  topPreds.classList.add("hidden");
+  recosWrap.classList.add("hidden");
+});
+
+el("exportCsv").addEventListener("click", downloadCsv);
+
+el("clearHistory").addEventListener("click", ()=>{
+  if(confirm("Clear all local prediction history?")){
+    localStorage.removeItem(HIST_KEY);
+    renderHistory();
+  }
+});
+
+el("showRecos").addEventListener("click", ()=>{
+  const key = diseaseSelect.value;
+  const docs = TOP_DOCTORS[key]||[];
+  const hos  = TOP_HOSPITALS[key]||[];
+  const docList = docs.map((d,i)=>`<li>${i+1}. <strong>${d[0]}</strong> (${d[1]}) — ${d[2]} (📞 ${d[3]})</li>`).join("");
+  const hosList = hos.map((h,i)=>`<li>${i+1}. <strong>${h[0]}</strong> (📞 ${h[1]})</li>`).join("");
+  recoLists.innerHTML = `
+    <div class="row" style="gap:26px">
+      <div style="flex:1 1 320px">
+        <div class="section-title">Top 5 Doctors</div>
+        <ol class="list">${docList||'<li class="muted">No entries</li>'}</ol>
+      </div>
+      <div style="flex:1 1 320px">
+        <div class="section-title">Top 5 Hospitals</div>
+        <ol class="list">${hosList||'<li class="muted">No entries</li>'}</ol>
+      </div>
+    </div>`;
+  recoLists.classList.remove("hidden");
+});
+
+/** ===== Predict button ===== **/
+el("predictBtn").addEventListener("click", async ()=>{
+  const name = el("patientName").value.trim();
+  const age  = Number(el("patientAge").value);
+  const key  = diseaseSelect.value;
+  const meta = DISEASES[key];
+
+  if(!name){ alert("Please enter your name."); return; }
+  if(!Number.isFinite(age) || age <= 0){ alert("Please enter a valid age."); return; }
+
+  // Gather features
+  let featureValues = {};
+  if(key!=="skin" && meta.features){
+    for(const f of meta.features){
+      const id = "feat_"+f.replaceAll(/[^a-z0-9:_()-]/gi,"_");
+      const v = Number(document.getElementById(id).value);
+      if(!Number.isFinite(v)){ alert(`Please enter a numeric value for "${f}".`); return; }
+      featureValues[f] = v;
+    }
+  }
+
+  // DEMO vs API
+  let outText = "", conf = 0.0, pred = 0;
+  let topK = null;
+
+  if(USE_DEMO){
+    if(key==="skin"){
+      if(!skinFile.files?.length){ alert("Please choose a skin image first."); return; }
+      topK = demoSkinTopK();
+      const top = topK[0];
+      const isHealthy = (top.label||"").toLowerCase().includes("healthy");
+      conf = Number((top.prob*100).toFixed(2));
+      if(isHealthy){
+        outText = `🟢 This image most likely shows healthy skin (${conf}% confidence).`;
+        pred = 0;
+      }else{
+        outText = `🔴 This image most likely indicates ${top.label} (${conf}% confidence).`;
+        pred = 1;
+      }
+    }else{
+      const r = demoTabularRisk(key, featureValues);
+      pred = r.pred; conf = Number((r.conf*100).toFixed(2));
+      if(pred===0){
+        outText = `🟢 You are Fit! You are not suffering from ${meta.name}.`;
+      }else{
+        outText = `🔴 You are at high chance of suffering from ${meta.name}! You should consult a doctor for better treatment.`;
+      }
+    }
+  } else {
+    // ===== Real API wiring (example; align with your Python) =====
+    // For tabular:
+    // const resp = await fetch("/predict/tabular", {
+    //   method:"POST",
+    //   headers:{ "Content-Type":"application/json" },
+    //   body: JSON.stringify({ disease:key, patientName:name, patientAge:age, features:featureValues })
+    // });
+    // const data = await resp.json(); // { prediction:0|1, accuracy:float, message:string }
+    // pred = data.prediction; conf = Number((data.accuracy*100).toFixed(2)); outText = data.message;
+
+    // For skin (multipart):
+    // const fd = new FormData();
+    // fd.append("patientName", name);
+    // fd.append("patientAge", String(age));
+    // fd.append("image", skinFile.files[0]);
+    // const r = await fetch("/predict/skin", { method:"POST", body:fd });
+    // const d = await r.json(); // { topK:[{label,prob}], summary:string }
+    // topK = d.topK; outText = d.summary; conf = Number((topK?.[0]?.prob*100).toFixed(2) || 0);
+  }
+
+  // Present result
+  resultBox.textContent = outText;
+  resultBox.classList.remove("hidden");
+  resultBox.classList.toggle("ok", pred===0);
+  resultBox.classList.toggle("warn", pred===1);
+
+  // Top-k (only for skin)
+  if(key==="skin" && topK){
+    predRows.innerHTML = topK.map(p=>`<tr><td>${p.label}</td><td>${(p.prob*100).toFixed(2)}%</td></tr>`).join("");
+    topPreds.classList.remove("hidden");
+  }else{
+    topPreds.classList.add("hidden");
+  }
+
+  // Ask to show recommendations (like your CLI prompt)
+  recosWrap.classList.remove("hidden");
+
+  // Log to local history (CSV-compatible)
+  const ts = new Date();
+  const stamp = ts.toLocaleString("en-GB", { hour12:false }); // dd/mm/yyyy, hh:mm:ss (similar to  "%d-%m-%Y %H:%M:%S")
+  const row = [stamp, name, String(age), meta.name, (pred===0?"Fit":"Diseased"), String(conf.toFixed(2))];
+  addHistoryRow(row);
+});
+</script>
+</body>
+</html>
